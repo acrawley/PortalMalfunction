@@ -1,0 +1,6 @@
+name: PortalMalfunction
+main: net.andrewcr.minecraft.plugin.PortalMalfunction.internal.Plugin
+version: 1.0
+authors: [ andrewcr ]
+depend: [ BasePluginLib, PlayerPortals ]
+softdepend: [ Multiverse-Core ]
