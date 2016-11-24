@@ -49,7 +49,6 @@ public class ConfigStore extends ConfigurationFileBase {
 
     //region Serialization
 
-
     @Override
     protected String getFileName() {
         return "config.yml";

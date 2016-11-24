@@ -12,9 +12,11 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public class PortalListener implements Listener {
     static final String PORTAL_MALFUNCTIONING_KEY = "Malfunctioning";
@@ -22,6 +24,37 @@ public class PortalListener implements Listener {
     static final String MALFUNCTION_IN_PROGRESS_KEY = "MalfunctionInProgress";
 
     private static final float MALFUNCTION_WALK_SPEED = 0.02f;
+
+    @EventHandler
+    public void onPlayerLogin(PlayerLoginEvent event) {
+        Player player = event.getPlayer();
+        PlayerConfig config = ConfigStore.getInstance().getPlayerConfig(player);
+
+        if (config.isInProgress()) {
+            // Player logged back in after being disconnected in the middle of a malfunction - wait until
+            //  the login finishes, then complete the malfunction tasks.
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (!player.isOnline()) {
+                        // Login hasn't finished yet - try again in a bit
+                        return;
+                    }
+
+                    // Send player to redirect location
+                    MalfunctionTask.doTeleportStep(player);
+
+                    // Remove player's inventory, if possible
+                    MalfunctionTask.doInventoryStep(player);
+
+                    // Reset everything else to normal
+                    MalfunctionTask.doCleanupStep(player, config);
+
+                    this.cancel();
+                }
+            }.runTaskTimer(Plugin.getInstance(), 20, 2);
+        }
+    }
 
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {

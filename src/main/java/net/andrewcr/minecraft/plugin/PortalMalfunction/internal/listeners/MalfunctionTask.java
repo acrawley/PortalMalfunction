@@ -60,23 +60,19 @@ class MalfunctionTask extends BukkitRunnable {
         this.addChatStep(370, "Emergency shunt online");
         this.addChatStep(380, "Engaging emergency shunt...");
 
-        // Remove player's inventory
-        Location chestLocation = ConfigStore.getInstance().getChestLocation();
-        if (chestLocation != null && ChestUtil.getChest(chestLocation) != null) {
-            this.addStep(340, new TaskStep() {
-                @Override
-                void execute() {
-                    ChestListener.addPlayerInventory(player);
-                    player.spawnParticle(Particle.CLOUD, player.getLocation(), 200);
-                }
-            });
-
-        }
+        // Remove player's inventory, if possible
+        this.addStep(340, new TaskStep() {
+            @Override
+            void execute() {
+                MalfunctionTask.doInventoryStep(player);
+                player.spawnParticle(Particle.CLOUD, player.getLocation(), 200);
+            }
+        });
 
         // Lightning strikes at source
         int zapStep = 0;
         for (int i = 1; i < 40; i++) {
-            this.addZapStep(zapStep, origin, (i / 10) + 1);
+            this.addZapStep(zapStep, (i / 10) + 1);
             zapStep += (40 - i) / 2;
         }
 
@@ -84,7 +80,7 @@ class MalfunctionTask extends BukkitRunnable {
         this.addStep(390, new TaskStep() {
             @Override
             void execute() {
-                PlayerPortalsIntegration.getInstance().teleportPlayer(player, ConfigStore.getInstance().getRedirectPortal(), false);
+                MalfunctionTask.doTeleportStep(player);
             }
         });
 
@@ -109,15 +105,7 @@ class MalfunctionTask extends BukkitRunnable {
                 // Allow use of source portal again
                 startPortal.setProperty(PortalListener.PORTAL_MALFUNCTIONING_KEY, null);
 
-                // Don't limit the player's speed anymore
-                player.removeMetadata(PortalListener.MALFUNCTION_IN_PROGRESS_KEY, Plugin.getInstance());
-                player.setWalkSpeed(config.getPreviousSpeed());
-
-                // Clear the config flag
-                config.setIsInProgress(false);
-
-                // Don't malfunction twice for the same player
-                //config.setIsTriggered(true);
+                MalfunctionTask.doCleanupStep(player, config);
             }
         });
 
@@ -127,9 +115,32 @@ class MalfunctionTask extends BukkitRunnable {
         // Lightning strikes at destination
         zapStep = 400;
         for (int i = 39; i > 0; i--) {
-            this.addZapStep(zapStep, destination, (i / 10) + 1);
+            this.addZapStep(zapStep, (i / 10) + 1);
             zapStep += (40 - i) / 2;
         }
+    }
+
+    static void doTeleportStep(Player player) {
+        PlayerPortalsIntegration.getInstance().teleportPlayer(player, ConfigStore.getInstance().getRedirectPortal(), false);
+    }
+
+    static void doInventoryStep(Player player) {
+        Location chestLocation = ConfigStore.getInstance().getChestLocation();
+        if (chestLocation != null && ChestUtil.getChest(chestLocation) != null) {
+            ChestListener.addPlayerInventory(player);
+        }
+    }
+
+    static void doCleanupStep(Player player, PlayerConfig config) {
+        // Don't limit the player's speed anymore
+        player.removeMetadata(PortalListener.MALFUNCTION_IN_PROGRESS_KEY, Plugin.getInstance());
+        player.setWalkSpeed(config.getPreviousSpeed());
+
+        // Clear the config flag
+        config.setIsInProgress(false);
+
+        // Don't malfunction twice for the same player
+        config.setIsTriggered(true);
     }
 
     private void addChatStep(int tick, String message) {
@@ -141,7 +152,7 @@ class MalfunctionTask extends BukkitRunnable {
         });
     }
 
-    private void addZapStep(int tick, Location center, int strikes) {
+    private void addZapStep(int tick, int strikes) {
         this.addStep(tick, new TaskStep() {
             int radius = 6;
 
@@ -152,12 +163,12 @@ class MalfunctionTask extends BukkitRunnable {
                     double r = Math.random() * this.radius;
 
                     // Convert from polar to rectangular
-                    Location strikeLocation = center.clone();
-                    strikeLocation.setX(center.getX() + (r * Math.cos(phi)));
-                    strikeLocation.setZ(center.getZ() + (r * Math.sin(phi)));
-                    strikeLocation.setY(center.getWorld().getHighestBlockYAt(strikeLocation));
+                    Location strikeLocation = player.getLocation().clone();
+                    strikeLocation.setX(strikeLocation.getX() + (r * Math.cos(phi)));
+                    strikeLocation.setZ(strikeLocation.getZ() + (r * Math.sin(phi)));
+                    strikeLocation.setY(strikeLocation.getWorld().getHighestBlockYAt(strikeLocation));
 
-                    center.getWorld().strikeLightningEffect(strikeLocation);
+                    strikeLocation.getWorld().strikeLightningEffect(strikeLocation);
                 }
             }
         });
@@ -179,6 +190,13 @@ class MalfunctionTask extends BukkitRunnable {
     @Override
     public void run() {
         this.count++;
+
+        if (!this.player.isOnline()) {
+            // Player disconnected in the middle of the sequence - reset the portal and wait for them to log back in
+            startPortal.setProperty(PortalListener.PORTAL_MALFUNCTIONING_KEY, null);
+            this.cancel();
+            return;
+        }
 
         for (Integer tick : this.steps.keySet()) {
             if (tick < count) {
@@ -216,7 +234,7 @@ class MalfunctionTask extends BukkitRunnable {
             return null;
         }
 
-        Chest startChest = (Chest)startBlock.getState();
+        Chest startChest = (Chest) startBlock.getState();
         Material startMaterial = startChest.getData().getItemType();
 
         // Always refer to a double chest by the most south-west component to avoid ambiguity
@@ -227,9 +245,8 @@ class MalfunctionTask extends BukkitRunnable {
             Location candidate = location.clone();
             candidate.add(offset);
             Block candidateBlock = candidate.getBlock();
-            if (candidateBlock != null && candidateBlock.getState() instanceof Chest)
-            {
-                Chest candidateChest = (Chest)candidateBlock.getState();
+            if (candidateBlock != null && candidateBlock.getState() instanceof Chest) {
+                Chest candidateChest = (Chest) candidateBlock.getState();
 
                 if (candidateChest.getData().getItemType() == startMaterial) {
                     // Found another chest of the same type to the south or west, so that must be the origin
