@@ -63,7 +63,7 @@ public class ConfigStore extends ConfigurationFileBase {
                 return;
 
             default:
-                Plugin.getInstance().getLogger().severe("Unknown portal configuration version '" + version + "'!");
+                Plugin.getInstance().getLogger().severe("Unknown PortalMalfunction configuration version '" + version + "'!");
         }
 
     }
@@ -82,7 +82,7 @@ public class ConfigStore extends ConfigurationFileBase {
             }
         }
 
-        Plugin.getInstance().getLogger().info("Loaded " + this.playerConfigs.size() + " portal(s)!");
+        Plugin.getInstance().getLogger().info("Loaded configs for " + this.playerConfigs.size() + " player(s)!");
     }
 
     @Override
@@ -100,7 +100,7 @@ public class ConfigStore extends ConfigurationFileBase {
             config.save(players);
         }
 
-        Plugin.getInstance().getLogger().info("Saved " + this.playerConfigs.size() + " portal(s)!");
+        Plugin.getInstance().getLogger().info("Saved configs for " + this.playerConfigs.size() + " player(s)!");
     }
 
     //endregion

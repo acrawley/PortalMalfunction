@@ -1,8 +1,10 @@
 package net.andrewcr.minecraft.plugin.PortalMalfunction.internal.listeners;
 
 import net.andrewcr.minecraft.plugin.BasePluginLib.util.ChestUtil;
+import net.andrewcr.minecraft.plugin.BasePluginLib.util.StringUtil;
 import net.andrewcr.minecraft.plugin.PortalMalfunction.internal.model.ConfigStore;
 import net.andrewcr.minecraft.plugin.PortalMalfunction.internal.model.PlayerConfig;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -24,6 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ChestListener implements Listener {
+    private final static String CUSTOM_INVENTORY_TITLE = "Lost and Found";
+
     //region Event Handlers
 
     @EventHandler
@@ -39,8 +43,11 @@ public class ChestListener implements Listener {
             return;
         }
 
-        // Start from a clean slate
-        event.getInventory().clear();
+        // Cancel the chest open - we're going to use a custom inventory instead
+        event.setCancelled(true);
+
+        // Create a new inventory to hold the player's stored items
+        Inventory inventory = Bukkit.createInventory(player, 54, CUSTOM_INVENTORY_TITLE);
 
         PlayerConfig config = ConfigStore.getInstance().getPlayerConfig(player);
         if (config == null) {
@@ -49,11 +56,13 @@ public class ChestListener implements Listener {
         }
 
         // Show as many of the player's stored items as will fit in the chest
-        int itemCount = Math.min(event.getInventory().getSize(), config.getInventory().size());
+        int itemCount = Math.min(inventory.getSize(), config.getInventory().size());
         for (int i = 0; i < itemCount; i++) {
             // Remove items from stored inventory and place in chest
-            event.getInventory().addItem(config.getInventory().remove(0));
+            inventory.addItem(config.getInventory().remove(0));
         }
+
+        player.openInventory(inventory);
     }
 
     @EventHandler
@@ -64,13 +73,12 @@ public class ChestListener implements Listener {
 
         Player player = (Player) event.getPlayer();
 
-        Chest chest = this.getChestForEvent(event);
-        if (chest == null) {
+        PlayerConfig config = ConfigStore.getInstance().getPlayerConfig(player);
+        if (config == null) {
             return;
         }
 
-        PlayerConfig config = ConfigStore.getInstance().getPlayerConfig(player);
-        if (config == null) {
+        if (!isCustomInventory(event.getInventory())) {
             return;
         }
 
@@ -93,13 +101,8 @@ public class ChestListener implements Listener {
 
         Player player = (Player) event.getWhoClicked();
 
-        Chest chest = getChestForEvent(event);
-        if (chest == null) {
-            return;
-        }
-
         Inventory clickedInventory = event.getClickedInventory();
-        if (clickedInventory == null) {
+        if (clickedInventory == null || !isCustomInventory(clickedInventory)) {
             return;
         }
 
@@ -108,12 +111,12 @@ public class ChestListener implements Listener {
             case PLACE_ALL:
             case PLACE_ONE:
             case PLACE_SOME:
-                isMoveToChest = !(clickedInventory.getHolder() instanceof Player);
+                isMoveToChest = isCustomInventory(clickedInventory);
                 break;
 
             case SWAP_WITH_CURSOR:
             case MOVE_TO_OTHER_INVENTORY:
-                isMoveToChest = (clickedInventory.getHolder() instanceof Player);
+                isMoveToChest = !isCustomInventory(clickedInventory);
         }
 
         if (isMoveToChest) {
@@ -129,8 +132,7 @@ public class ChestListener implements Listener {
 
         Player player = (Player) event.getWhoClicked();
 
-        Chest chest = getChestForEvent(event);
-        if (chest == null) {
+        if (!isCustomInventory(event.getInventory())) {
             return;
         }
 
@@ -179,6 +181,10 @@ public class ChestListener implements Listener {
     }
 
     //endregion
+
+    private static boolean isCustomInventory(Inventory inv) {
+        return StringUtil.equals(inv.getTitle(), "Lost and Found");
+    }
 
     private Chest getChestForEvent(InventoryEvent event) {
         InventoryHolder holder = event.getInventory().getHolder();

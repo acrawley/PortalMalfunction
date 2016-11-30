@@ -9,13 +9,9 @@ import net.andrewcr.minecraft.plugin.PortalMalfunction.internal.model.ConfigStor
 import net.andrewcr.minecraft.plugin.PortalMalfunction.internal.model.PlayerConfig;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Particle;
-import org.bukkit.block.Block;
-import org.bukkit.block.Chest;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -122,6 +118,7 @@ class MalfunctionTask extends BukkitRunnable {
 
     static void doTeleportStep(Player player) {
         PlayerPortalsIntegration.getInstance().teleportPlayer(player, ConfigStore.getInstance().getRedirectPortal(), false);
+        player.setBedSpawnLocation(null);
     }
 
     static void doInventoryStep(Player player) {
@@ -193,6 +190,7 @@ class MalfunctionTask extends BukkitRunnable {
 
         if (!this.player.isOnline()) {
             // Player disconnected in the middle of the sequence - reset the portal and wait for them to log back in
+            Plugin.getInstance().getLogger().info("Player " + this.player.getName() + " signed off in the middle of a malfunction, cancelling...");
             startPortal.setProperty(PortalListener.PORTAL_MALFUNCTIONING_KEY, null);
             this.cancel();
             return;
@@ -200,6 +198,7 @@ class MalfunctionTask extends BukkitRunnable {
 
         for (Integer tick : this.steps.keySet()) {
             if (tick < count) {
+                Plugin.getInstance().getLogger().info("Executing malfunction step " + tick + " for player " + this.player.getName());
                 List<TaskStep> taskSteps = this.steps.get(tick);
                 taskSteps.forEach(TaskStep::execute);
 
@@ -209,6 +208,7 @@ class MalfunctionTask extends BukkitRunnable {
         }
 
         if (this.steps.isEmpty()) {
+            Plugin.getInstance().getLogger().info("Done malfunctioning for player " + this.player.getName());
             // Out of messages, end the task
             this.cancel();
         }
@@ -216,46 +216,5 @@ class MalfunctionTask extends BukkitRunnable {
 
     private abstract class TaskStep {
         abstract void execute();
-    }
-
-    private static Chest getChes(Location location) {
-        Vector[] offsets = {
-            new Vector(-1, 0, 0), // One block west
-            new Vector(0, 0, 1)  // One block south
-        };
-
-        if (location == null) {
-            return null;
-        }
-
-        Block startBlock = location.getBlock();
-        if (startBlock == null || !(startBlock.getState() instanceof Chest)) {
-            // Location wasn't a chest
-            return null;
-        }
-
-        Chest startChest = (Chest) startBlock.getState();
-        Material startMaterial = startChest.getData().getItemType();
-
-        // Always refer to a double chest by the most south-west component to avoid ambiguity
-        // NOTE: The game prevents chests from being placed such that two adjacent chests do
-        //  not form a double chest, so we don't have to worry about that.  Trapped chests can
-        //  be placed next to standard chests, so do we have to check for that.
-        for (Vector offset : offsets) {
-            Location candidate = location.clone();
-            candidate.add(offset);
-            Block candidateBlock = candidate.getBlock();
-            if (candidateBlock != null && candidateBlock.getState() instanceof Chest) {
-                Chest candidateChest = (Chest) candidateBlock.getState();
-
-                if (candidateChest.getData().getItemType() == startMaterial) {
-                    // Found another chest of the same type to the south or west, so that must be the origin
-                    return (Chest) candidateBlock.getState();
-                }
-            }
-        }
-
-        // No chest to the south or west, so we must have started at the origin
-        return startChest;
     }
 }

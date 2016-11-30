@@ -3,6 +3,8 @@ package net.andrewcr.minecraft.plugin.PortalMalfunction.internal;
 import lombok.Getter;
 import net.andrewcr.minecraft.plugin.BasePluginLib.plugin.PluginBase;
 import net.andrewcr.minecraft.plugin.BasePluginLib.util.Version;
+import net.andrewcr.minecraft.plugin.PortalMalfunction.internal.commands.PMCommand;
+import net.andrewcr.minecraft.plugin.PortalMalfunction.internal.commands.PMResetCommand;
 import net.andrewcr.minecraft.plugin.PortalMalfunction.internal.integration.playerportals.PlayerPortalsIntegration;
 import net.andrewcr.minecraft.plugin.PortalMalfunction.internal.listeners.ChestListener;
 import net.andrewcr.minecraft.plugin.PortalMalfunction.internal.listeners.PortalListener;
@@ -22,6 +24,9 @@ public class Plugin extends PluginBase {
     @Override
     public void onEnableCore() {
         Plugin.instance = this;
+
+        this.registerCommand(new PMCommand());
+        this.registerCommand(new PMResetCommand());
 
         this.configStore = new ConfigStore();
         this.configStore.load();

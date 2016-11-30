@@ -41,6 +41,8 @@ public class PortalListener implements Listener {
                         return;
                     }
 
+                    Plugin.getInstance().getLogger().info("Finishing interrupted malfunction for player " + player.getName());
+
                     // Send player to redirect location
                     MalfunctionTask.doTeleportStep(player);
 
@@ -52,7 +54,7 @@ public class PortalListener implements Listener {
 
                     this.cancel();
                 }
-            }.runTaskTimer(Plugin.getInstance(), 20, 2);
+            }.runTaskTimer(Plugin.getInstance(), 50, 2);
         }
     }
 
@@ -74,6 +76,8 @@ public class PortalListener implements Listener {
                 }
 
                 if (origin.distance(event.getTo()) > 2) {
+                    Plugin.getInstance().getLogger().info("Player " + player.getName() + " moved far enough - starting malfunction");
+
                     // Player has moved far enough, start the fun
                     player.removeMetadata(MALFUNCTION_ORIGIN_KEY, Plugin.getInstance());
                     player.setMetadata(MALFUNCTION_IN_PROGRESS_KEY, new FixedMetadataValue(Plugin.getInstance(), true));
@@ -83,9 +87,11 @@ public class PortalListener implements Listener {
                     config.setPreviousSpeed(event.getPlayer().getWalkSpeed());
                     event.getPlayer().setWalkSpeed(MALFUNCTION_WALK_SPEED);
 
+                    Plugin.getInstance().getLogger().info("Previous walk speed: " + config.getPreviousSpeed());
+
                     // Start the task that creates the malfunction events
                     MalfunctionTask malfunctionTask = new MalfunctionTask(event.getPlayer(), origin);
-                    malfunctionTask.runTaskTimer(Plugin.getInstance(), 0, 1);
+                    malfunctionTask.runTaskTimer(Plugin.getInstance(), 1, 1);
                 }
             }
         }
@@ -137,6 +143,8 @@ public class PortalListener implements Listener {
             // Already triggered for this player
             return;
         }
+
+        Plugin.getInstance().getLogger().info("Beginning malfunction for player " + player.getName());
 
         config.setIsInProgress(true);
         destPortal.setProperty(PORTAL_MALFUNCTIONING_KEY, "true");

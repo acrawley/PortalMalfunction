@@ -4,3 +4,16 @@ version: 1.0
 authors: [ andrewcr ]
 depend: [ BasePluginLib, PlayerPortals ]
 softdepend: [ Multiverse-Core ]
+
+commands:
+  pm:
+    description: PortalMalfunction Commands
+    usage: /pm
+  pm reset:
+    description: Resets a player's state
+    usage: /pm reset [player]
+
+permissions:
+  pm.command:
+    description: Determines whether or not a player can use commands
+    default: op
